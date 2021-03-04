@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"time"
 )
 
 var (
@@ -35,7 +36,9 @@ func init() {
 	if port == "" {
 		panic("PORT must be set")
 	}
+	rand.Seed(time.Now().UnixNano())
 }
+
 func Run() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vals, err := getValues()
