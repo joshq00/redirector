@@ -1,0 +1,27 @@
+<html>
+<head>
+	<style>
+		button {
+			font-size: 5em;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<button>Open</button>
+<script>
+(function(){
+	fetch('/uris')
+		.then(r => r.json())
+		.then(res => res.data)
+		.then(data => {
+			var btn = document.querySelector('button')
+			btn.addEventListener('click', (e) => {
+				window.open('/redirect', '_blank')
+			})
+		})
+})()
+</script>
+</body>
+</html>

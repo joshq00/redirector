@@ -1,23 +1,27 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
 var (
-	apiKey          = os.Getenv("API_KEY")
-	redirectPattern = os.Getenv("REDIRECT_PATTERN") // e.g. https://github.com/%s
-	spreadsheetId   = os.Getenv("SPREADSHEET_ID")
-	readRange       = os.Getenv("READ_RANGE") // e.g. Sheet1!A2:A
-	port            = os.Getenv("PORT")
+	apiKey          = strings.TrimSpace(os.Getenv("API_KEY"))
+	redirectPattern = strings.TrimSpace(os.Getenv("REDIRECT_PATTERN")) // e.g. https://github.com/%s
+	spreadsheetId   = strings.TrimSpace(os.Getenv("SPREADSHEET_ID"))
+	readRange       = strings.TrimSpace(os.Getenv("READ_RANGE")) // e.g. Sheet1!A2:A
+	port            = strings.TrimSpace(os.Getenv("PORT"))
+	host            = strings.TrimSpace(os.Getenv("HOST"))
 )
 
 func init() {
@@ -40,7 +44,8 @@ func init() {
 }
 
 func Run() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/redirect", func(w http.ResponseWriter, r *http.Request) {
 		vals, err := getValues()
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -48,12 +53,45 @@ func Run() http.Handler {
 		}
 
 		idx := rand.Intn(len(vals))
-		http.Redirect(w, r, fmt.Sprintf(redirectPattern, vals[idx]), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, determineRedirectURI(redirectPattern, vals[idx]), http.StatusTemporaryRedirect)
 	})
+	mux.HandleFunc("/uris", listAll)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
+	})
+	return mux
+}
+
+func listAll(w http.ResponseWriter, r *http.Request) {
+	vals, err := getValues()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	type link struct {
+		URI string `json:"uri"`
+	}
+	data := make([]link, len(vals))
+	for i, v := range vals {
+		data[i] = link{determineRedirectURI(redirectPattern, v)}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.Encode(struct{
+		Data []link `json:"data"`
+	}{data})
+}
+
+func determineRedirectURI(pat, val string) string {
+	uri, err := url.Parse(val)
+	if err == nil && uri.Scheme != "" && uri.Host != "" {
+		return uri.String()
+	}
+	return fmt.Sprintf(pat, url.PathEscape(val))
 }
 
 func getValues() ([]string, error) {
-
 	ctx := context.Background()
 	srv, err := sheets.NewService(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
@@ -72,9 +110,10 @@ func getValues() ([]string, error) {
 		}
 	}
 	return vals, nil
-
 }
 
 func main() {
-	log.Println(http.ListenAndServe(fmt.Sprintf(":%v", port), Run()))
+	addr := fmt.Sprintf("%v:%v", host, port)
+	log.Println("listening on", addr)
+	log.Println(http.ListenAndServe(addr, Run()))
 }
