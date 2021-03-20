@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 	"log"
 	"math/rand"
@@ -55,11 +54,50 @@ func Run() http.Handler {
 		idx := rand.Intn(len(vals))
 		http.Redirect(w, r, determineRedirectURI(redirectPattern, vals[idx]), http.StatusTemporaryRedirect)
 	})
-	mux.HandleFunc("/uris", listAll)
+	mux.HandleFunc("/uris", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			listAll(w, r)
+		case http.MethodPost:
+			addUri(w, r)
+		}
+	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "index.html")
 	})
 	return mux
+}
+
+func addUri(w http.ResponseWriter, r *http.Request) {
+	bod := struct {
+		Value string `json:"value"`
+	}{}
+	if err := json.NewDecoder(r.Body).Decode(&bod); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := addValues([]string{bod.Value}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.Encode(toLink(bod.Value))
+}
+
+type link struct {
+	Value string `json:"value"`
+	URI   string `json:"uri"`
+}
+
+func toLink(v string) link {
+	return link{
+		v,
+		determineRedirectURI(redirectPattern, v),
+	}
 }
 
 func listAll(w http.ResponseWriter, r *http.Request) {
@@ -68,17 +106,15 @@ func listAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	type link struct {
-		URI string `json:"uri"`
-	}
+
 	data := make([]link, len(vals))
 	for i, v := range vals {
-		data[i] = link{determineRedirectURI(redirectPattern, v)}
+		data[i] = toLink(v)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	enc.Encode(struct{
+	enc.Encode(struct {
 		Data []link `json:"data"`
 	}{data})
 }
@@ -93,7 +129,7 @@ func determineRedirectURI(pat, val string) string {
 
 func getValues() ([]string, error) {
 	ctx := context.Background()
-	srv, err := sheets.NewService(ctx, option.WithAPIKey(apiKey))
+	srv, err := sheets.NewService(ctx)
 	if err != nil {
 		log.Fatalf("Unable to retrieve Sheets client: %v", err)
 	}
@@ -110,6 +146,25 @@ func getValues() ([]string, error) {
 		}
 	}
 	return vals, nil
+}
+
+func addValues(vals []string) error {
+	ctx := context.Background()
+	srv, err := sheets.NewService(ctx)
+	if err != nil {
+		log.Fatalf("Unable to retrieve Sheets client: %v", err)
+	}
+	values := &sheets.ValueRange{
+		Values: [][]interface{}{},
+	}
+	for _, v := range vals {
+		values.Values = append(values.Values, []interface{}{v})
+	}
+	_, err = srv.Spreadsheets.Values.
+		Append(spreadsheetId, readRange, values).
+		ValueInputOption("RAW").
+		Do()
+	return err
 }
 
 func main() {
