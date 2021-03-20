@@ -1,6 +1,7 @@
 <html>
 <head>
 	<title>Redirector</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 	<style>
 		body, main {
 			height: 100vh;
@@ -8,41 +9,38 @@
 			margin: 0;
 			padding: 0;
 		}
-		button#open {
-			font-size: 5em;
-			width: 80%;
-			height: 60%;
+		input, button {
+			font-size: 3em;
+			line-height: 1.5em;
 		}
-		button#add {
-			width: 80%;
-			height: 20%;
-		}
-		button#clear {
-			height: 3em;
-			width: 3em;
-		}
-		.three {
-			display: flex;
-			flex-direction: row;
-			flex-wrap: nowrap;
-			justify-content: space-around;
-			align-content: stretch;
-			height: 50%;
-			overflow: hidden;
-		}
+		@media only screen and (min-width: 480px) {
+			.three {
+				display: flex;
+				flex-direction: row;
+				flex-wrap: nowrap;
+				justify-content: space-around;
+				align-content: stretch;
+				height: 25%;
+				overflow: hidden;
+			}
+			.three.interactive {
+				height: 75%;
+			}
 
-		.three > * {
-			flex: 1 0;
-			align-self: center;
-		}
-		.three>*:nth-child(3) {
-			align-self: normal;
-			overflow-y: scroll;
-			overflow-x: hidden;
+			.three > * {
+				flex: 1 0;
+				align-self: center;
+			}
+			.three>*:nth-child(3) {
+				align-self: normal;
+				overflow-y: scroll;
+				overflow-x: hidden;
+			}
 		}
 		input {
 			width: 80%;
-			line-height: 3em;
+			font-size: 3em;
+			line-height: 1.5em;
 		}
 		a {
 			line-height: 1.5em;
@@ -54,6 +52,23 @@
 			line-break: anywhere;
 			margin: 0.5em;
 		}
+		@media only screen and (max-width: 480px) {
+			.three.interactive {
+				height: 80%;
+			}
+			#matches {
+				height: inherit;
+			}
+			input {
+				width: 70%;
+			}
+			button#clear {
+				width: 20%;
+			}
+		}
+		#matches {
+			overflow-y: scroll;
+		}
 	</style>
 </head>
 <body>
@@ -63,7 +78,7 @@
 				<button id='open'>Open</button>
 			</div>
 		</div>
-		<div class='three'>
+		<div class='three interactive'>
 			<div style='text-align: center'>
 				<input type="text" autocomplete="off" placeholder="* to list all" />
 				<button id='clear'>x</button>
