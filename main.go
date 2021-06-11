@@ -47,6 +47,7 @@ func Run() http.Handler {
 	mux.HandleFunc("/redirect", func(w http.ResponseWriter, r *http.Request) {
 		vals, err := getValues()
 		if err != nil {
+			log.Println(err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -73,11 +74,13 @@ func addUri(w http.ResponseWriter, r *http.Request) {
 		Value string `json:"value"`
 	}{}
 	if err := json.NewDecoder(r.Body).Decode(&bod); err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := addValues([]string{bod.Value}); err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -103,6 +106,7 @@ func toLink(v string) link {
 func listAll(w http.ResponseWriter, r *http.Request) {
 	vals, err := getValues()
 	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
